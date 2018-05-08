@@ -65,6 +65,10 @@
     "EMRS3LoggingUri": {
       "Description": "The S3 location for EMR logs",
       "Type": "String"
+    },
+    "PrestoScriptPath": {
+      "Description": "The S3 location of presto-update-trusted-store.sh script",
+      "Type": "String"
     }
   },
   "Resources": {
@@ -312,7 +316,9 @@
         "HadoopJarStep": {
           "Jar": "s3://us-east-1.elasticmapreduce/libs/script-runner/script-runner.jar",
           "Args": [
-            "s3://rh-emr-tls/presto-update-trusted-store.sh"
+            {
+              "Ref": "PrestoScriptPath"
+            }
           ]
         },
         "JobFlowId": {

@@ -5,7 +5,7 @@ An example of a EMR TLS Custom Certificate Provider
 * tls-source-code - source code of TLS Java jar
 * scripts\emr-presto-conf.sh - script to run on EMR bootstrap. Downloading and running Presto configuration script
 * scripts\presto-update-dicovery-uri.sh - Presto configuration script
-* cloudformation - example of AWS CloudFormation template to launch Amazon EMR cluster
+* cloudformation - example of AWS CloudFormation templates to launch Amazon EMR cluster
 
 ## License Summary
 

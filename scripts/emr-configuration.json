@@ -1,0 +1,40 @@
+[
+  {
+    "Classification": "core-site",
+    "Properties": {
+      "hadoop.security.groups.cache.secs": "250"
+    }
+  },
+  {
+    "Classification": "mapred-site",
+    "Properties": {
+      "mapred.tasktracker.map.tasks.maximum": "2",
+      "mapreduce.map.sort.spill.percent": "90",
+      "mapred.tasktracker.reduce.tasks.maximum": "5"
+    }
+  },
+  {
+    "Classification": "hadoop-env",
+    "Configurations": [
+      {
+        "Classification": "export",
+        "Properties": {
+          "HADOOP_DATANODE_HEAPSIZE": "2048",
+          "HADOOP_NAMENODE_OPTS": "-XX:GCTimeRatio=19"
+        }
+      }
+    ]
+  },
+  {
+    "Classification": "hue-ini",
+    "Configurations": [
+      {
+        "Classification": "desktop",
+        "Properties": {
+          "ssl_certificate": "/etc/certs/public.crt",
+          "ssl_private_key": "/etc/certs/private.key"
+        }
+      }
+    ]
+  }
+]

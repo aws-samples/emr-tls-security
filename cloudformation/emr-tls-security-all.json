@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "EMR Setup HTTPS For Hue, Zeppelin and Presto",
+  "Description": "EMR Setup HTTPS For Hue, Zeppelin and Presto including Policy and Lambda",
   "Parameters": {
     "KeyName": {
       "Description": "Name of an existing EC2 KeyPair to enable SSH to the instances",
@@ -68,6 +68,83 @@
     }
   },
   "Resources": {
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "lambda-ssm-parameter-store-role",
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "SSMPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "ssm",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameter"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "index.lambda_handler",
+        "FunctionName": "get-ssm-parameter-lambda",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "import json",
+                "import boto3",
+                "ssm = boto3.client('ssm')",
+                "def lambda_handler(event, context):",
+                "   ssmResp = ssm.get_parameter(",
+                "       Name=event['ParameterName'],",
+                "       WithDecryption=False",
+                "   )",
+                "   paramValue = ssmResp['Parameter']['Value']",
+                "   return(paramValue)"
+              ]
+            ]
+          }
+        },
+        "Timeout": 60,
+        "Runtime": "python2.7"
+      },
+      "DependsOn": "LambdaRole"
+    },
     "EMRCluster": {
       "Metadata": {
         "AWS::CloudFormation::Init": {
@@ -287,7 +364,8 @@
           }
         ],
         "VisibleToAllUsers": "true"
-      }
+      },
+      "DependsOn": "LambdaFunction"
     },
     "EMRZeppelinSSLStep": {
       "Type": "AWS::EMR::Step",

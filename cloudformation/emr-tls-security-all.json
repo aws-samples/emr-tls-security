@@ -481,7 +481,7 @@
         "Name": {
           "Ref": "EMRClusterName"
         },
-        "ReleaseLabel": "emr-5.10.0",
+        "ReleaseLabel": "emr-5.14.0",
         "LogUri": {
           "Ref": "EMRS3LoggingUri"
         },

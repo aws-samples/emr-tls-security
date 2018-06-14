@@ -4,28 +4,36 @@
   <artifactId>emr-tls-ssm</artifactId>
   <version>0.1</version>
   <name>emr-tls-ssm</name>
-  <description>EMR TLS Custom Certificate Provider for comunication between EMR nodes</description>
- <dependencyManagement>
+  <description>EMR TLS Custom Certificate Provider for communication between EMR nodes</description>
   <dependencies>
-    <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk-bom</artifactId>
-      <version>1.11.211</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-  <dependencies>
+	<dependency>
+	  	<groupId>com.amazonaws</groupId>
+	  		<artifactId>aws-java-sdk-emr</artifactId>
+	  		<version>1.11.170</version>
+	  	</dependency>
+	<dependency>
+  	<groupId>com.amazonaws</groupId>
+  		<artifactId>aws-java-sdk-core</artifactId>
+  		<version>1.10.75.1</version>
+  	</dependency>
   	<dependency>
-  		<groupId>com.amazonaws</groupId>
-  		<artifactId>aws-java-sdk-emr</artifactId>
-  	</dependency>	
+  	<groupId>com.amazonaws</groupId>
+  		<artifactId>aws-java-sdk-ec2</artifactId>
+  		<version>1.10.75.1</version>
+  	</dependency>
+	 <dependency>
+	  	<groupId>com.amazonaws</groupId>
+	  		<artifactId>aws-java-sdk-kms</artifactId>
+	  		<version>1.10.75.1</version>
+	  	</dependency>
+	 <dependency>
+  	<groupId>com.amazonaws</groupId>
+  		<artifactId>aws-java-sdk-lambda</artifactId>
+  		<version>1.10.75.1</version>
+  	</dependency> 			
   </dependencies>
-
   <build>
-  	<plugins>
+  	<plugins>	
   		<plugin>
   			<groupId>org.apache.maven.plugins</groupId>
   			<artifactId>mmaven-assembly-plugin</artifactId>
@@ -35,6 +43,7 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
           <execution>
+          <id>jar-with-dependencies</id>
             <phase>package</phase>
             <goals>
               <goal>single</goal>
@@ -45,11 +54,14 @@
           <archive>
       <manifest>
         <mainClass>${fully.qualified.main.class}</mainClass>
+        <addClasspath>true</addClasspath>
       </manifest>
     </archive> 
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
           </descriptorRefs>
+          <finalName>emr-tls-ssm-0.1</finalName>
+          <appendAssemblyId>false</appendAssemblyId>
         </configuration>
       </plugin> 		
   	</plugins>

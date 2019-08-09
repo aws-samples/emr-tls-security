@@ -7,6 +7,9 @@ An example of a EMR TLS Custom Certificate Provider
 * scripts\presto-update-dicovery-uri.sh - Presto configuration script
 * cloudformation - example of AWS CloudFormation templates to launch Amazon EMR cluster
 
+# Note
+For EMR 5.22 or later use the jar version 0.2 (emr-tls-ssm-0.2.jar) as well as CFN templates located in emr-5.22+ folder
+
 ## License Summary
 
 This sample code is made available under a modified MIT license. See the LICENSE file.

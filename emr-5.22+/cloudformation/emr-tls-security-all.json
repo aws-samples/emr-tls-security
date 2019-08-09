@@ -1,0 +1,474 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EMR Setup HTTPS For Hue, Zeppelin and Presto including Policy and Lambda",
+  "Parameters": {
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH to the instances",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "MasterInstanceType": {
+      "Description": "The Instance Type for the Master node",
+      "Type": "String",
+      "Default": "m4.xlarge"
+    },
+    "CoreInstanceType": {
+      "Description": "The Instance Type for the Core node",
+      "Type": "String",
+      "Default": "m4.xlarge"
+    },
+    "NumberOfCoreNodes": {
+      "Description": "Number of core nodes in the cluster",
+      "Type": "String",
+      "Default": "2"
+    },
+    "EMRClusterName": {
+      "Description": "Name of the EMR Cluster",
+      "Type": "String",
+      "Default": "emr-test-tls-cluster"
+    },
+    "EMRS3LoggingUri": {
+      "Description": "The S3 location for EMR logs",
+      "Type": "String"
+    },
+    "KMSKeyId": {
+      "Description": "Id of KMS Key that was used to encrypt TLS certificates in SSM Parameter Store",
+      "Type": "String"
+    },
+    "SGCIDR": {
+      "Description": "IP CIDR for connection to cluster - format xxx.xxx.xxx.xxx/xx",
+      "Type": "String"
+    },
+    "VPCId": {
+      "Description": "VPC where to launch cluster",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetId": {
+      "Description": "Subnet where to launch cluster",
+      "Type": "AWS::EC2::Subnet::Id"
+    }
+  },
+  "Resources": {
+
+    "EMREC2Role": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "emr-ec2-tls-role",
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "Lambda",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "ssm",
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameter"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Sid": "kms",
+                  "Effect": "Allow",
+                  "Action": [
+                    "kms:Decrypt"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:kms:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":key/",
+                          {
+                            "Ref": "KMSKeyId"
+                          }
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "EMRSecurityConfiguration": {
+      "Type": "AWS::EMR::SecurityConfiguration",
+      "Properties": {
+        "Name": "emr-tls-security-configuration",
+        "SecurityConfiguration": {
+          "EncryptionConfiguration": {
+            "EnableAtRestEncryption": false,
+            "EnableInTransitEncryption": true,
+            "InTransitEncryptionConfiguration": {
+              "TLSCertificateConfiguration": {
+                "CertificateProviderType": "Custom",
+                "S3Object": "s3://tls-blog-cf/emr-tls-ssm-0.2.jar",
+                "CertificateProviderClass": "emrtls"
+              }
+            }
+          }
+        }
+      },
+      "DependsOn": "EMREC2Role"
+    },
+    "EMRSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "EMR Additional Security Group",
+        "VpcId": {
+          "Ref": "VPCId"
+        }
+      }
+    },
+    "SSH": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "FromPort": "22",
+        "ToPort": "22",
+        "CidrIp": {
+          "Ref": "SGCIDR"
+        },
+        "GroupId": {
+          "Fn::GetAtt": [
+            "EMRSecurityGroup",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "Zeppelin": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "FromPort": "7773",
+        "ToPort": "7773",
+        "CidrIp": {
+          "Ref": "SGCIDR"
+        },
+        "GroupId": {
+          "Fn::GetAtt": [
+            "EMRSecurityGroup",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "Presto": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "FromPort": "8446",
+        "ToPort": "8446",
+        "CidrIp": {
+          "Ref": "SGCIDR"
+        },
+        "GroupId": {
+          "Fn::GetAtt": [
+            "EMRSecurityGroup",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "Hue": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "FromPort": "8888",
+        "ToPort": "8888",
+        "CidrIp": {
+          "Ref": "SGCIDR"
+        },
+        "GroupId": {
+          "Fn::GetAtt": [
+            "EMRSecurityGroup",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "EMRInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "EMREC2Role"
+          }
+        ],
+        "InstanceProfileName": "emr-instance-profile"
+      },
+      "DependsOn": "EMREC2Role"
+    },
+    "EMRCluster": {
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "master": [
+              "zeppelin-ssl"
+            ]
+          },
+          "zeppelin-ssl": {
+            "files": {
+              "/home/hadoop/zeppelin-ssl.sh": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "#!/bin/bash\n",
+                      "# Configure SSL connection\n",
+                      "sudo cp /etc/zeppelin/conf/zeppelin-site.xml.template /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "truststorePath=$(grep -Po \"(?<=^internal-communication.https.keystore.path = ).*\" /etc/presto/conf/config.properties)\n",
+                      "truststorePass=$(grep -Po \"(?<=^internal-communication.https.keystore.key = ).*\" /etc/presto/conf/config.properties)\n",
+                      "keystorePath=$(grep -Po \"(?<=^http-server.https.keystore.path = ).*\" /etc/presto/conf/config.properties)\n",
+                      "keystorePass=$(grep -Po \"(?<=^http-server.https.keystore.key = ).*\" /etc/presto/conf/config.properties)\n",
+                      "keymanager=$(grep -Po \"(?<=^http-server.https.keymanager.password = ).*\" /etc/presto/conf/config.properties)\n",
+                      "sudo sed -i '/<name>zeppelin.server.port<\\/name>/!b;n;c<value>8890<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo sed -i '/<name>zeppelin.server.ssl.port<\\/name>/!b;n;c<value>7773<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo sed -i '/<name>zeppelin.ssl<\\/name>/!b;n;c<value>true<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo sed -i '/<name>zeppelin.ssl.keystore.path<\\/name>/!b;n;c<value>'\"$keystorePath\"'<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo sed -i '/<name>zeppelin.ssl.keystore.password<\\/name>/!b;n;c<value>'\"$keystorePass\"'<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo sed -i '/<name>zeppelin.ssl.truststore.path<\\/name>/!b;n;c<value>'\"$truststorePath\"'<\\/value>' /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "CONTENT1=\"<property>\\n  <name>zeppelin.ssl.truststore.password</name>\\n  <value>${truststorePass}</value>\\n</property>\"\n",
+                      "sudo sed -i '/<\\/configuration>/i'\"$CONTENT1\" /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "CONTENT2=\"<property>\\n  <name>zeppelin.ssl.key.manager.password</name>\\n  <value>${keymanager}</value>\\n</property>\"\n",
+                      "sudo sed -i '/<\\/configuration>/i'\"$CONTENT2\" /etc/zeppelin/conf/zeppelin-site.xml\n",
+                      "sudo stop zeppelin\n",
+                      "sudo start zeppelin\n"
+                    ]
+                  ]
+                },
+                "mode": "000777"
+              }
+            }
+          }
+        }
+      },
+      "Type": "AWS::EMR::Cluster",
+      "Properties": {
+        "BootstrapActions": [
+          {
+            "Name": "RunCFInitMaster",
+            "ScriptBootstrapAction": {
+              "Path": "s3://elasticmapreduce/bootstrap-actions/run-if",
+              "Args": [
+                "instance.isMaster=true",
+                {
+                  "Fn::Join": [
+                    " ",
+                    [
+                      "sudo /opt/aws/bin/cfn-init -v --stack",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      "--resource EMRCluster --configsets master --region",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Applications": [
+          {
+            "Name": "Hadoop"
+          },
+          {
+            "Name": "Hive"
+          },
+          {
+            "Name": "Presto"
+          },
+          {
+            "Name": "Spark"
+          },
+          {
+            "Name": "Hue"
+          },
+          {
+            "Name": "Zeppelin"
+          }
+        ],
+        "Configurations": [
+          {
+            "Classification": "core-site",
+            "ConfigurationProperties": {
+              "hadoop.security.groups.cache.secs": "250"
+            }
+          },
+          {
+            "Classification": "mapred-site",
+            "ConfigurationProperties": {
+              "mapred.tasktracker.map.tasks.maximum": "2",
+              "mapreduce.map.sort.spill.percent": "90",
+              "mapred.tasktracker.reduce.tasks.maximum": "5"
+            }
+          },
+          {
+            "Classification": "hadoop-env",
+            "Configurations": [
+              {
+                "Classification": "export",
+                "ConfigurationProperties": {
+                  "HADOOP_DATANODE_HEAPSIZE": "2048",
+                  "HADOOP_NAMENODE_OPTS": "-XX:GCTimeRatio=19"
+                }
+              }
+            ]
+          },
+          {
+            "Classification": "hue-ini",
+            "Configurations": [
+              {
+                "Classification": "desktop",
+                "ConfigurationProperties": {
+                  "ssl_certificate": "/etc/certs/public.crt",
+                  "ssl_private_key": "/etc/certs/private.key"
+                }
+              }
+            ]
+          }
+        ],
+        "Instances": {
+          "MasterInstanceGroup": {
+            "InstanceCount": "1",
+            "InstanceType": {
+              "Ref": "MasterInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Master"
+          },
+          "CoreInstanceGroup": {
+            "InstanceCount": {
+              "Ref": "NumberOfCoreNodes"
+            },
+            "InstanceType": {
+              "Ref": "CoreInstanceType"
+            },
+            "Market": "ON_DEMAND",
+            "Name": "Core"
+          },
+          "Ec2KeyName": {
+            "Ref": "KeyName"
+          },
+          "Ec2SubnetId": {
+            "Ref": "SubnetId"
+          },
+          "AdditionalMasterSecurityGroups": [{
+            "Ref": "EMRSecurityGroup"
+          }]
+        },
+        "JobFlowRole": {
+          "Ref": "EMRInstanceProfile"
+        },
+        "ServiceRole": "EMR_DefaultRole",
+        "Name": {
+          "Ref": "EMRClusterName"
+        },
+        "ReleaseLabel": "emr-5.22.0",
+        "LogUri": {
+          "Ref": "EMRS3LoggingUri"
+        },
+        "SecurityConfiguration": {
+          "Ref": "EMRSecurityConfiguration"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "EMRClusterName"
+            }
+          },
+          {
+            "Key": "ssm:ssl:private-key",
+            "Value": "/emr/private-key"
+          },
+          {
+            "Key": "ssm:ssl:certificate",
+            "Value": "/emr/certificate"
+          },
+          {
+            "Key": "ssm:ssl:inter-node-private-key",
+            "Value": "/emr/inter-nodes-private-key"
+          },
+          {
+            "Key": "ssm:ssl:inter-node-certificate",
+            "Value": "/emr/inter-nodes-certificate"
+          },
+          {
+            "Key": "tls:lambda-fn-name",
+            "Value": "get-ssm-parameter-lambda"
+          }
+        ],
+        "VisibleToAllUsers": "true"
+      },
+      "DependsOn": "EMRSecurityConfiguration"
+    },
+    "EMRZeppelinSSLStep": {
+      "Type": "AWS::EMR::Step",
+      "Properties": {
+        "ActionOnFailure": "CONTINUE",
+        "HadoopJarStep": {
+          "Jar": "command-runner.jar",
+          "Args": [
+            "/home/hadoop/zeppelin-ssl.sh"
+          ]
+        },
+        "JobFlowId": {
+          "Ref": "EMRCluster"
+        },
+        "Name": "EMR-Setup-Zeppelin-SSL"
+      }
+    },
+    "EMRPrestoTrustedStorStep": {
+      "Type": "AWS::EMR::Step",
+      "Properties": {
+        "ActionOnFailure": "CONTINUE",
+        "HadoopJarStep": {
+          "Jar": "s3://us-east-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+          "Args": [
+            "s3://tls-blog-cf/presto-update-trusted-store.sh"
+          ]
+        },
+        "JobFlowId": {
+          "Ref": "EMRCluster"
+        },
+        "Name": "EMR-Setup-Presto-Trusted-Store"
+      }
+    }
+  }
+}

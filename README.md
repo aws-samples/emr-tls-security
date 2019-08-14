@@ -8,7 +8,7 @@ An example of a EMR TLS Custom Certificate Provider
 * cloudformation - example of AWS CloudFormation templates to launch Amazon EMR cluster
 
 ### Note
-For EMR 5.11 or later use the jar version 0.2 (emr-tls-ssm-0.2.jar) as well as CFN templates located in emr-5.22+ folder
+For EMR 5.11 or later use the jar version 0.2 (emr-tls-ssm-0.2.jar) and CFN templates located in emr-5.22+ folder
 
 ## License Summary
 
